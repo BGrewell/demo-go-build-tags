@@ -12,7 +12,7 @@ import (
 )
 
 type UserInfo struct {
-	ID        int	 `json:"user_id"`
+	ID        int    `json:"user_id"`
 	Username  string `json:"username"`
 	Session   string `json: "session"`
 	State     string `json: "state"`
@@ -33,8 +33,8 @@ func executeCommand(command string) (stdout, stderr string, err error) {
 func parseUserInfoWindows(commandOutput string) []*UserInfo {
 	lines := strings.Split(commandOutput, "\r\n")
 	lines = removeEmptyEntries(lines)
-	users := make([]*UserInfo, len(lines)-1)
-	for i := 1; i < len(lines); i++ {
+	users := make([]*UserInfo, len(lines)-2) // header and command prompt lines
+	for i := 1; i < len(lines)-1; i++ {
 		fields := strings.Fields(lines[i])
 		idx := i - 1
 		id, err := strconv.Atoi(fields[2])
@@ -72,7 +72,7 @@ func parseUserInfoLinux(commandOutput string) []*UserInfo {
 
 func removeEmptyEntries(slice []string) (ret []string) {
 	for _, entry := range slice {
-		if entry != "" {
+		if strings.TrimSpace(entry) != "" {
 			ret = append(ret, entry)
 		}
 	}
@@ -82,12 +82,13 @@ func removeEmptyEntries(slice []string) (ret []string) {
 func main() {
 
 	if runtime.GOOS == "windows" {
-		command := "query user"
+		command := "cmd.exe /k query user"
 		stdout, stderr, err := executeCommand(command)
+		if stderr != "" {
+			log.Printf("execution error: %s\n", stderr)
+		}
 		if err != nil {
 			log.Fatalf("fatal error: %v", err)
-		} else if stderr != "" {
-			log.Printf("command error: %s", stderr)
 		}
 		users := parseUserInfoWindows(stdout)
 		for _, user := range users {
@@ -98,10 +99,11 @@ func main() {
 	} else if runtime.GOOS == "linux" {
 		command := "who"
 		stdout, stderr, err := executeCommand(command)
+		if stderr != "" {
+			log.Printf("execution error: %s\n", stderr)
+		}
 		if err != nil {
 			log.Fatalf("fatal error: %v", err)
-		} else if stderr != "" {
-			log.Printf("command error: %s", stderr)
 		}
 		users := parseUserInfoLinux(stdout)
 		for _, user := range users {
@@ -109,7 +111,5 @@ func main() {
 			fmt.Printf("User: %v\n", string(userJSON))
 		}
 
-	} else {
-		fmt.Println("Your operating system is not supported")
 	}
 }
